@@ -1,0 +1,26 @@
+isotope:
+  js:
+    js/isotope.js: { }
+    js/isotope/js/isotope.pkgd.js: { minified: false }
+    js/isotope/js/masonry-horizontal.js: { minified: false }
+    js/isotope/js/packery-mode.pkgd.js: { minified: false }
+    js/isotope/js/fit-columns.js: { minified: false }
+  css:
+    theme:
+      css/isotope.css: { minified: false }
+  dependencies:
+    - core/once
+    - core/drupal
+    - core/jquery
+
+justified-gallery:
+  js:
+    js/justified-gallery/album-justified-gallery.js: { }
+    js/justified-gallery/jquery.justifiedGallery.min.js: { minified: true }
+  css:
+    theme:
+      css/justified-gallery/justifiedGallery.min.css: { minified: true }
+  dependencies:
+    - core/once
+    - core/drupal
+    - core/jquery

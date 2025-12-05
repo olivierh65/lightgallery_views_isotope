@@ -1,0 +1,161 @@
+<?php
+
+/**
+ * @file
+ * Main module file.
+ */
+
+use Drupal\Component\Utility\Html;
+use Drupal\Core\Template\Attribute;
+use Symfony\Component\Yaml\Yaml;
+
+/**
+ * Implements hook_theme().
+ */
+function lightgallery_views_isotope_theme(array $existing, string $type, string $theme, string $path): array {
+  return [
+    'album_justified_gallery' => [
+      'variables' => [
+        'attributes' => [],
+        'view' => NULL,
+        'options' => [],
+        'rows' => [],
+        'settings' => [],
+        'init' => TRUE
+      ],
+      'template' => 'album-justified-gallery',
+    ],
+    'album_isotope_gallery' => [
+      'variables' => [
+        'attributes' => [],
+        'view' => NULL,
+        'options' => [],
+        'albums' => [],
+        'settings' => [],
+        'init' => TRUE
+      ],
+      'template' => 'album-isotope-gallery',
+    ],
+  ];
+}
+
+/**
+ * Implements hook_requirements().
+ */
+function lightgallery_views_isotope_requirements($phase) {
+  $requirements = [];
+
+  if ($phase === 'runtime') {
+    $libraries_path = DRUPAL_ROOT ;
+
+    $missing = [];
+
+    // Chemin absolu vers lightgallery.libraries.yml
+    $lib_file = DRUPAL_ROOT . '/modules/custom/lightgallery/lightgallery.libraries.yml';
+
+    if (file_exists($lib_file)) {
+      $libraries = Yaml::parseFile($lib_file);
+
+        if (!file_exists($libraries_path . '/' . reset(array_keys($libraries['lightgallery']['js'])))) {
+          $missing[] = reset(array_keys($libraries['lightgallery']['js']));
+        }
+
+        if (!file_exists($libraries_path . '/' . reset(array_keys($libraries['justified_gallery']['js'])))) {
+          $missing[] = reset(array_keys($libraries['justified_gallery']['js']));
+        }
+
+    }
+    else {
+      $missing[] = 'lightgallery.libraries.yml introuvable.';
+    }
+
+    $requirements['lightgallery_libraries'] = [
+      'title' => t('LightGallery external libraries'),
+      'value' => empty($missing) ? t('All libraries present.') : t('Missing: @list', ['@list' => implode(', ', $missing)]),
+      'severity' => empty($missing) ? REQUIREMENT_OK : REQUIREMENT_ERROR,
+      'description' => t('Ensure the required JavaScript and CSS libraries are placed in the <code>/libraries</code> directory.'),
+    ];
+  }
+
+  return $requirements;
+}
+
+
+
+/**
+ * Default preprocess function for the lightgallery_views_isotope theme hook.
+ */
+function template_preprocess_lightgallery_views_isotope(array &$variables): void {
+  // Convert the item attributes.
+  foreach ($variables['items'] as &$item) {
+    $item['attributes'] = new Attribute($item['attributes'] ?? []);
+  }
+
+  $variables['#cache']['tags'][] = 'config:lightgallery.settings';
+
+  // Set the ID and attach the settings.
+  $id = $variables['settings']['galleryId'] ?? Html::getUniqueId('lightgallery');
+  $variables['attributes']['id'] = $id;
+  $variables['#attached']['drupalSettings']['lightgallery'][$id] = [
+    'inline' => $variables['inline'],
+    'settings' => $variables['settings'],
+  ];
+
+  // Attach the libraries.
+  $variables['#attached']['library'][] = 'lightgallery/lightgallery';
+
+  if (!empty($variables['settings']['plugins'])) {
+    $plugin_libraries = [
+      'lgAutoplay' => 'autoplay',
+      'lgComment' => 'comment',
+      'lgFullscreen' => 'fullscreen',
+      'lgHash' => 'hash',
+      'lgMediumZoom' => 'medium-zoom',
+      'lgPager' => 'pager',
+      'lgRelativeCaption' => 'relative-caption',
+      'lgRotate' => 'rotate',
+      'lgShare' => 'share',
+      'lgThumbnail' => 'thumbnail',
+      'lgVideo' => 'video',
+      'lgVimeoThumbnail' => 'vimeo-thumbnail',
+      'lgZoom' => 'zoom',
+    ];
+
+    foreach ($variables['settings']['plugins'] as $plugin) {
+      if (isset($plugin_libraries[$plugin])) {
+        $variables['#attached']['library'][] = 'lightgallery/lightgallery-' . $plugin_libraries[$plugin];
+      }
+    }
+  }
+
+  // Add the inline class.
+  if ($variables['inline']) {
+    $variables['attributes']['class'][] = 'lightgallery--inline';
+  }
+
+  // Add the thumbnail class and library.
+  $hook = $variables['theme_hook_original'];
+  if (str_starts_with($hook, 'lightgallery__media_thumbnail__') || str_starts_with($hook, 'lightgallery__image_thumbnail__')) {
+    $variables['attributes']['class'][] = 'lightgallery--thumbnail';
+    $variables['#attached']['library'][] = 'lightgallery/thumbnail';
+  }
+
+  // Enable initialisation.
+  if ($variables['init']) {
+    $variables['attributes']['class'][] = 'lightgallery-init';
+    $variables['#attached']['library'][] = 'lightgallery/init';
+  }
+}
+
+/**
+ * Implements hook_preprocess_HOOK().
+ */
+function lightgallery_views_isotope_preprocess_image(array &$variabes): void {
+  // Append "#video" to video thumbnails to allow custom styling.
+  if (!empty($variabes['attributes']['data-is-video-thumbnail'])) {
+    $variabes['attributes']['src'] .= '#video';
+  }
+
+  unset($variabes['attributes']['data-is-video-thumbnail']);
+}
+

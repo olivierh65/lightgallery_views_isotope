@@ -1,0 +1,121 @@
+{# templates/views-view-style--album-justified-gallery.html.twig #}
+{# This template is used to render a justified gallery of album items. #}
+
+{# {{ dump() }} #}
+
+{% set albums = albums|default([]) %}
+
+{% set size_tolerance = options.image.thumbnail_size_tolerance|default(10) %}
+
+{# Prepare attributes for the main container #}
+{% set attributes = create_attribute() %}
+{% if options.gallery.id is not empty %}
+	{% set attributes = attributes.setAttribute('id', options.gallery.id) %}
+{% endif %}
+{% if options.gallery.class is not empty %}
+	{% set attributes = attributes.addClass(options.gallery.class) %}
+{% endif %}
+{# Define classes for the main container #}
+{% set classes = [
+    'album-justified-gallery',
+    'view',
+    'view-album-justified-gallery',
+] %}
+
+{# Ensure that the albums variable is an array #}
+{% if not albums is iterable %}
+	{% set albums = [] %}
+{% endif %}
+
+<div{{attributes.addClass(classes)}}>
+	<div id="albums-gallery">
+		{% for item in albums %}
+			<div class="album-block {% if options.border == 1 %}
+						album-border
+					{% endif %}"
+				{% if item.max_width or item.max_height %} style="
+					{% if item.max_width %}
+						max-width: {{ item.max_width + (size_tolerance * item.max_width / 100) }}px;
+						min-width: {{ item.max_width - (size_tolerance * item.max_width / 100) }}px;
+					{% endif %}
+					position: relative;"
+				{% endif %}>
+				{% if item.medias is not empty %}
+					<a href="#" class="album-cover" data-album-id="{{ item.id }}">
+						<span class="album-cover-title-top">{{ item.title }}</span>
+						<img src="{{ item.image_url }}" alt="{{ item.alt|default(item.title) }}" class="album-cover-img" loading="lazy"
+						>
+					</a>
+				{% else %}
+					<span class="album-cover album-cover--disabled" title="Aucun média dans cet album – {{ item.title }}">
+						<img src="{{ item.image_url }}" alt="{{ item.title }}" class="album-cover-img" loading="lazy">
+						<span class="album-cover-title-overlay">{{ item.title }}</span>
+					</span>
+				{% endif %}
+				{# Hidden div for the lightgallery album #}
+				{% set item_id = 'album-' ~ item.id %}
+				{% set item_classes = ['lightgallery-album'] %}
+				{% if options.border == 1 %}
+					{% set item_classes = item_classes|merge(['album-border']) %}
+				{% endif %}
+				<div id="{{ item.id }}" class="lightgallery-album" style="display:none;">
+					{% for media in item.medias %}
+						{% if media.mime_type starts with 'image/' %}
+							<a href="{{ media.url }}" class="lightgallery__item" data-sub-html=".lightgallery_caption">
+								<img loading="lazy" src="{{ media.thumbnail }}">
+								<div class="lightgallery_caption">
+									<h4>{{ media.title|default('') }}</h4>
+									{% if media.alt %}
+										<p>{{ media.alt }}</p>
+									{% endif %}
+									{% if media.description %}
+										<p>{{ media.description }}</p>
+									{% endif %}
+								</div>
+							</a>
+						{% elseif media.mime_type starts with 'video/' %}
+							<a class="lightgallery__item" data-sub-html=".lightgallery_caption" data-poster="{{ media.thumbnail|default('') }}" data-video='{"source": [{"src":"{{ media.url }}","type":"{{ media.mime_type }}"}], "attributes": {"preload": false, "playsinline": true, "controls": true}}' "
+																								                title=" {{ media.title|default('') }} ">
+								{% if media.thumbnail %}
+									<img loading="lazy" class="img-responsive" src="{{ media.thumbnail|default('') }}"/>
+								{% endif %}
+								<div class="lightgallery_caption">
+									<h4>{{ media.title|default('') }}</h4>
+									{% if media.alt %}
+										<p>{{ media.alt }}</p>
+									{% endif %}
+									{% if media.description %}
+										<p>{{ media.description }}</p>
+									{% endif %}
+								</div>
+							</a>
+						{% endif %}
+					{% endfor %}
+				</div>
+
+				{% if options.captions == 1 %}
+				<div class="album-caption">
+					{# {% if item.title %}
+						<h3>{{ item.title }}</h3>
+					{% endif %}
+					#}
+					{% if item.author %}
+						<div class="album-author">{{ item.author }}</div>
+					{% endif %}
+					{% if item.description %}
+						<div class="album-description" style="
+							{% if item.max_width %}
+								width: {{ item.max_width }}px;
+								max-width: {{ item.max_width + (size_tolerance * item.max_width / 100) }}px;
+								min-width: {{ item.max_width - (size_tolerance * item.max_width / 100) }}px;
+							{% endif %}
+						">
+						{{ item.description|raw }}
+						</div>
+					{% endif %}
+				</div>
+				{% endif %}
+			</div>
+		{% endfor %}
+	</div>
+</div>

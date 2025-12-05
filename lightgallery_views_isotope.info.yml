@@ -1,0 +1,12 @@
+name: 'LightGallery Views Isotope'
+description: Integrates image and media fields with lightGallery.
+package: Media
+
+type: module
+core_version_requirement: ^10 || ^11
+
+dependencies:
+  - drupal:image
+  - drupal:views
+  - lightgallery:lightgallery
+  - lightGallery_settings_ui:lightgallery_settings_ui
