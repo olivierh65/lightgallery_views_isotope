@@ -45,7 +45,17 @@ class AlbumIsotopeGallery extends StylePluginBase {
   /**
    * {@inheritdoc}
    */
-  protected $usesGrouping = FALSE;
+  protected $usesGrouping = TRUE;
+
+  /**
+   * Does the style plugin for itself support to add fields to its output.
+   *
+   * This option only makes sense on style plugins without row plugins, like
+   * for example table.
+   *
+   * @var bool
+   */
+  protected $usesFields = FALSE;
 
   /**
    * Constructs an AlbumIsotopeGallery style plugin instance.
@@ -108,6 +118,31 @@ class AlbumIsotopeGallery extends StylePluginBase {
         'border' => TRUE,
       ],
     ];
+
+    // don't add grouping options as they are already defined in the parent class
+    // when $this->usesGrouping = TRUE;.
+    /* $options['grouping'] = [
+    'default' => [],
+    'contains' => [
+    0 => [
+    'default' => ['field' => '', 'rendered' => FALSE, 'rendered_strip' => FALSE],
+    'contains' => [
+    'field' => ['default' => ''],
+    'rendered' => ['default' => FALSE],
+    'rendered_strip' => ['default' => FALSE],
+    ],
+    ],
+    1 => [
+    'default' => ['field' => '', 'rendered' => FALSE, 'rendered_strip' => FALSE],
+    'contains' => [
+    'field' => ['default' => ''],
+    'rendered' => ['default' => FALSE],
+    'rendered_strip' => ['default' => FALSE],
+    ],
+    ],
+    ],
+    ]; */
+
     return $options;
   }
 
@@ -209,6 +244,38 @@ class AlbumIsotopeGallery extends StylePluginBase {
       '#default_value' => $this->options['image']['author_field'],
     ];
 
+    // don't add grouping options as they are already defined in the parent class
+    // when $this->usesGrouping = TRUE;.
+    /* // Grouping options.
+    $form['grouping'] = [
+    '#type' => 'details',
+    '#title' => $this->t('Grouping settings'),
+    '#description' => $this->t('Configure grouping by taxonomy terms.'),
+    '#open' => FALSE,
+    '#tree' => TRUE,
+    ];
+
+    // Assurez-vous que les options 0 et 1 existent.
+    $this->options['grouping'][0] = $this->options['grouping'][0] ?? ['field' => '', 'rendered' => FALSE, 'rendered_strip' => FALSE];
+    $this->options['grouping'][1] = $this->options['grouping'][1] ?? ['field' => '', 'rendered' => FALSE, 'rendered_strip' => FALSE];
+
+    $form['grouping'][0]['field'] = [
+    '#type' => 'select',
+    '#title' => $this->t('First grouping field'),
+    '#options' => ['' => $this->t('- None -')] + $fields_taxo,
+    // Notez l'accès direct aux indices numériques de Views.
+    '#default_value' => $this->options['grouping'][0]['field'],
+    '#description' => $this->t('Select a taxonomy field to group items (first level).'),
+    ];
+
+    $form['grouping'][1]['field'] = [
+    '#type' => 'select',
+    '#title' => $this->t('Second grouping field'),
+    '#options' => ['' => $this->t('- None -')] + $fields_taxo,
+    '#default_value' => $this->options['grouping'][1]['field'],
+    '#description' => $this->t('Select a taxonomy field to group items (second level).'),
+    ];
+     */
     // Options for the Gallery.
     $form['gallery'] = [
       '#type' => 'details',
@@ -317,15 +384,15 @@ class AlbumIsotopeGallery extends StylePluginBase {
    * {@inheritdoc}
    */
   public function render() {
-
     $id = rand();
 
     $build = [
       '#theme' => $this->themeFunctions(),
-      '#rows' => [],
+      '#view' => $this->view,
       '#options' => $this->options,
+      '#rows' => [],
       '#attributes' => [
-        'class' => ['album-justified-gallery', 'lightgallery-init'],
+        'class' => ['album-isotope-gallery', 'lightgallery-init'],
       ],
       '#attached' => [
         'library' => [
@@ -337,13 +404,15 @@ class AlbumIsotopeGallery extends StylePluginBase {
             'lightgallery' => [
               'inline' => FALSE,
               'galleryId' => $id,
+        // Sera rempli par processGroupRecursive.
+              'albums' => [],
             ],
             'layout' => [
               'width' => $this->options['gallery']['width'] ?? '30%',
               'columnWidth' => $this->options['gallery']['columnWidth'] ?? '',
               'rowHeight' => $this->options['gallery']['rowHeight'] ?? '',
               'gutter' => $this->options['gallery']['gutter'] ?? 5,
-              'horizontal' => $this->options['gallery']['horizonta'] ?? FALSE,
+              'horizontal' => $this->options['gallery']['horizontal'] ?? FALSE,
               'horizontalOrder' => $this->options['gallery']['horizontalOrder'] ?? TRUE,
               'fitWidth' => $this->options['gallery']['fitWidth'] ?? FALSE,
               'layout' => $this->options['gallery']['layout'] ?? 'packery',
@@ -353,159 +422,15 @@ class AlbumIsotopeGallery extends StylePluginBase {
       ],
     ];
 
-    foreach ($this->view->result as $index => $row) {
-      $this->view->row_index = $index;
+    // Obtenir les résultats groupés de Views.
+    $grouped_rows = $this->renderGrouping(
+    $this->view->result,
+    $this->options['grouping'],
+    TRUE
+    );
 
-      // Get first media as presentation image.
-      $image_url = $this->getMediaImageUrl($row, $this->options['image']['image_field']);
-
-      // Text fields.
-      $title = !empty($this->options['image']['title_field']) ? $this->getFieldValue($index, $this->options['image']['title_field']) : '';
-      $author = !empty($this->options['image']['author_field']) ? $this->getFieldValue($index, $this->options['image']['author_field']) : '';
-      $description = !empty($this->options['image']['description_field']) ? $this->getFieldValue($index, $this->options['image']['description_field']) : '';
-      $url = Url::fromRoute('entity.node.canonical', ['node' => $row->nid])->toString();
-
-      // Get all media items associated with this album.
-      $medias = [];
-      if (
-            isset($row->_entity)
-            && $row->_entity instanceof
-      EntityInterface            && $row->_entity->hasField($this->options['image']['image_field'])
-        ) {
-        foreach ($row->_entity->get($this->options['image']['image_field']) as $media_item) {
-          $media = $media_item->entity;
-
-          if (!$media instanceof MediaInterface) {
-            continue;
-          }
-
-          $source_field = $this->getSourceField($media);
-          if (!$source_field) {
-            continue;
-          }
-
-          switch ($media->getSource()->getPluginId()) {
-            case 'image':
-              // Image media type.
-              $file = $media->get($source_field)->entity;
-              if ($file instanceof FileInterface) {
-                $original_url = $this->fileUrlGenerator->generateAbsoluteString($file->getFileUri());
-
-                // Gestion du thumbnail avec style d'image.
-                $thumbnail_url = $original_url;
-                if (!empty($this->options['image']['image_thumbnail_style'])) {
-                  try {
-                    $image_style = ImageStyle::load($this->options['image']['image_thumbnail_style']);
-                    if ($image_style) {
-                      $thumbnail_url = $image_style->buildUrl($file->getFileUri());
-                    }
-                  }
-                  catch (\Exception $e) {
-                    \Drupal::logger('album_gallery')->error('Error loading image style: @error', ['@error' => $e->getMessage()]);
-                  }
-                }
-
-                $medias[] = [
-                  'url' => $original_url,
-                  'mime_type' => $file->getMimeType(),
-                  'alt' => $media->get($source_field)->first()->get('alt')->getValue() ?? '',
-                  'title' => $media->get($source_field)->first()->get('title')->getValue() ?? '',
-                  'thumbnail' => $thumbnail_url,
-                ];
-              }
-              break;
-
-            case 'video_file':
-              // Video file media type.
-              $file = $media->get($source_field)->entity;
-              $thumbnail = $media->get('thumbnail')->entity;
-              if ($file instanceof FileInterface) {
-                $thumbnail_url = '';
-                if ($thumbnail) {
-                  $thumbnail_url = $this->fileUrlGenerator->generateAbsoluteString($thumbnail->getFileUri());
-
-                  // Appliquer le style d'image à la miniature vidéo si défini.
-                  if (!empty($this->options['image']['image_thumbnail_style'])) {
-                    try {
-                      $image_style = ImageStyle::load($this->options['image']['image_thumbnail_style']);
-                      if ($image_style) {
-                        $thumbnail_url = $image_style->buildUrl($thumbnail->getFileUri());
-                      }
-                    }
-                    catch (\Exception $e) {
-                      \Drupal::logger('album_gallery')->error('Error loading image style for video thumbnail: @error', ['@error' => $e->getMessage()]);
-                    }
-                  }
-                }
-
-                $medias[] = [
-                  'url' => $this->fileUrlGenerator->generateAbsoluteString($file->getFileUri()),
-                  'mime_type' => $file->getMimeType(),
-                  'thumbnail' => $thumbnail_url,
-                  'title' => $media->get($source_field)->first()->get('description')->getValue() ?? '',
-                ];
-              }
-              break;
-
-            default:
-              \Drupal::logger('album_gallery')->warning('Unsupported media type: @type', ['@type' => $media->getSource()->getPluginId()]);
-              break;
-          }
-        }
-      }
-
-      $renderer = $this->view->display_handler->getOption('fields')[$this->options['image']['image_field']]['settings']['view_mode'] ?? 'default';
-      $display = \Drupal::service('entity_display.repository')->getViewDisplay('node', $row->_entity->bundle(), $renderer);
-
-      if ($display && $display->getComponent($this->options['image']['image_field'])) {
-        $node_settings = $display->getComponent($this->options['image']['image_field'])['settings'];
-      }
-      else {
-        $node_settings = [];
-      }
-
-      $album_id = 'album-item-' . rand();
-      // Build the settings for the album.
-      // Same settings for all albums, as they use the same formatter/renderer,
-      // but Views can return different content types.
-      $build['#attached']['drupalSettings']['lightgallery']['albums'][$album_id] = static::getGeneralSettings($node_settings);
-      // Build plugins list and attach libraries.
-      foreach ($build['#attached']['drupalSettings']['lightgallery']['albums'][$album_id]['plugins'] ?? [] as $plugin_name => $plugin) {
-        $build['#attached']['library'][] = 'lightgallery/lightgallery-' . $plugin_name ?? $plugin_name;
-        // $build['#attached']['drupalSettings']['lightgallery']['albums']
-        // [$album_id]['plugins'][] = $plugin ?? $plugin;
-      }
-
-      $image_style = NULL;
-      $max_width = NULL;
-      $max_height = NULL;
-      if (!empty($this->options['image']['image_thumbnail_style'])) {
-        $image_style = ImageStyle::load($this->options['image']['image_thumbnail_style']);
-        if ($image_style) {
-          $effects = $image_style->getEffects();
-          foreach ($effects as $effect) {
-            $conf = $effect->getConfiguration();
-            if ($conf['id'] === 'image_scale' || $conf['id'] === 'image_scale_and_crop') {
-              $max_width = $conf['data']['width'] ?? NULL;
-              $max_height = $conf['data']['height'] ?? NULL;
-              break;
-            }
-          }
-        }
-      }
-
-      $build['#albums'][] = [
-        'image_url' => $image_url,
-        'title' => $title,
-        'author' => $author,
-        'description' => $description,
-        'url' => $url,
-        'medias' => $medias,
-        'id' => $album_id,
-        'max_width' => $max_width,
-        'max_height' => $max_height,
-      ];
-    }
+    // Traiter récursivement la structure groupée.
+    $build['#groups'] = $this->processGroupRecursive($grouped_rows, $build);
 
     $build['#options'] += [
       'border' => $this->options['image']['border'] ?? TRUE,
@@ -515,6 +440,225 @@ class AlbumIsotopeGallery extends StylePluginBase {
 
     unset($this->view->row_index);
     return $build;
+  }
+
+  /**
+   * Traite récursivement la structure de grouping de Views.
+   *
+   * @param array $groups
+   *   La structure de grouping retournée par renderGrouping().
+   * @param array &$build
+   *   Le build array (passé par référence pour ajouter les settings).
+   * @param int $depth
+   *   Profondeur actuelle (pour debug/styling).
+   *
+   * @return array
+   *   Structure normalisée pour Twig.
+   */
+  private function processGroupRecursive(array $groups, array &$build, int $depth = 0) {
+    $processed = [];
+
+    foreach ($groups as $group_key => $group_data) {
+      $group_item = [
+        'title' => $group_data['group'] ?? '',
+        'level' => $group_data['level'] ?? $depth,
+        'albums' => [],
+        'subgroups' => [],
+      ];
+
+      // Vérifier si ce groupe contient des rows (résultats finaux)
+      if (isset($group_data['rows']) && is_array($group_data['rows'])) {
+
+        // Déterminer si les "rows" sont en fait d'autres groupes ou des vraies rows.
+        $first_row = reset($group_data['rows']);
+
+        if (is_array($first_row) && isset($first_row['group']) && isset($first_row['level'])) {
+          // Ce sont des sous-groupes, traiter récursivement.
+          $group_item['subgroups'] = $this->processGroupRecursive(
+          $group_data['rows'],
+          $build,
+          $depth + 1
+          );
+        }
+        else {
+          // Ce sont des vraies rows (ResultRow), traiter les albums.
+          foreach ($group_data['rows'] as $index => $row) {
+            $album_data = $this->buildAlbumData($row, $index);
+
+            if ($album_data) {
+              $group_item['albums'][] = $album_data;
+
+              // Ajouter les settings lightgallery au build.
+              $build['#attached']['drupalSettings']['settings']['lightgallery']['albums'][$album_data['id']] =
+              $album_data['lightgallery_settings'];
+
+              // Ajouter les librairies des plugins.
+              foreach ($album_data['lightgallery_settings']['plugins'] ?? [] as $plugin_name => $plugin) {
+                $build['#attached']['library'][] = 'lightgallery/lightgallery-' . $plugin_name;
+              }
+            }
+          }
+        }
+      }
+
+      $processed[] = $group_item;
+    }
+
+    return $processed;
+  }
+
+  /**
+   * Construit les données d'un album à partir d'une row.
+   *
+   * @param object $row
+   *   La row de la vue (ResultRow).
+   * @param int $index
+   *   L'index de la row.
+   *
+   * @return array|null
+   *   Les données de l'album ou NULL si erreur.
+   */
+  private function buildAlbumData($row, $index) {
+    $this->view->row_index = $index;
+
+    // Get first media as presentation image.
+    $image_url = $this->getMediaImageUrl($row, $this->options['image']['image_field']);
+
+    // Text fields.
+    $title = !empty($this->options['image']['title_field'])
+    ? $this->getFieldValue($index, $this->options['image']['title_field'])
+    : '';
+    $author = !empty($this->options['image']['author_field'])
+    ? $this->getFieldValue($index, $this->options['image']['author_field'])
+    : '';
+    $description = !empty($this->options['image']['description_field'])
+    ? $this->getFieldValue($index, $this->options['image']['description_field'])
+    : '';
+    $url = Url::fromRoute('entity.node.canonical', ['node' => $row->nid])->toString();
+
+    // Get all media items associated with this album.
+    $medias = [];
+    if (isset($row->_entity)
+      && $row->_entity instanceof EntityInterface
+      && $row->_entity->hasField($this->options['image']['image_field'])
+    ) {
+      foreach ($row->_entity->get($this->options['image']['image_field']) as $media_item) {
+        $media = $media_item->entity;
+
+        if (!$media instanceof MediaInterface) {
+          continue;
+        }
+
+        $source_field = $this->getSourceField($media);
+        if (!$source_field) {
+          continue;
+        }
+
+        switch ($media->getSource()->getPluginId()) {
+          case 'image':
+            $file = $media->get($source_field)->entity;
+            if ($file instanceof FileInterface) {
+              $original_url = $this->fileUrlGenerator->generateAbsoluteString($file->getFileUri());
+              $thumbnail_url = $original_url;
+
+              if (!empty($this->options['image']['image_thumbnail_style'])) {
+                try {
+                  $image_style = ImageStyle::load($this->options['image']['image_thumbnail_style']);
+                  if ($image_style) {
+                    $thumbnail_url = $image_style->buildUrl($file->getFileUri());
+                  }
+                }
+                catch (\Exception $e) {
+                  \Drupal::logger('album_gallery')->error('Error loading image style: @error',
+                  ['@error' => $e->getMessage()]);
+                }
+              }
+
+              $medias[] = [
+                'url' => $original_url,
+                'mime_type' => $file->getMimeType(),
+                'alt' => $media->get($source_field)->first()->get('alt')->getValue() ?? '',
+                'title' => $media->get($source_field)->first()->get('title')->getValue() ?? '',
+                'thumbnail' => $thumbnail_url,
+              ];
+            }
+            break;
+
+          case 'video_file':
+            $file = $media->get($source_field)->entity;
+            $thumbnail = $media->get('thumbnail')->entity;
+            if ($file instanceof FileInterface) {
+              $thumbnail_url = '';
+              if ($thumbnail) {
+                $thumbnail_url = $this->fileUrlGenerator->generateAbsoluteString($thumbnail->getFileUri());
+
+                if (!empty($this->options['image']['image_thumbnail_style'])) {
+                  try {
+                    $image_style = ImageStyle::load($this->options['image']['image_thumbnail_style']);
+                    if ($image_style) {
+                      $thumbnail_url = $image_style->buildUrl($thumbnail->getFileUri());
+                    }
+                  }
+                  catch (\Exception $e) {
+                    \Drupal::logger('album_gallery')->error('Error loading image style for video thumbnail: @error',
+                    ['@error' => $e->getMessage()]);
+                  }
+                }
+              }
+
+              $medias[] = [
+                'url' => $this->fileUrlGenerator->generateAbsoluteString($file->getFileUri()),
+                'mime_type' => $file->getMimeType(),
+                'thumbnail' => $thumbnail_url,
+                'title' => $media->get($source_field)->first()->get('description')->getValue() ?? '',
+              ];
+            }
+            break;
+        }
+      }
+    }
+
+    // Get lightgallery settings.
+    $renderer = $this->view->display_handler->getOption('fields')[$this->options['image']['image_field']]['settings']['view_mode'] ?? 'default';
+    $display = \Drupal::service('entity_display.repository')->getViewDisplay('node', $row->_entity->bundle(), $renderer);
+
+    $node_settings = [];
+    if ($display && $display->getComponent($this->options['image']['image_field'])) {
+      $node_settings = $display->getComponent($this->options['image']['image_field'])['settings'];
+    }
+
+    // Get image style dimensions.
+    $max_width = NULL;
+    $max_height = NULL;
+    if (!empty($this->options['image']['image_thumbnail_style'])) {
+      $image_style = ImageStyle::load($this->options['image']['image_thumbnail_style']);
+      if ($image_style) {
+        $effects = $image_style->getEffects();
+        foreach ($effects as $effect) {
+          $conf = $effect->getConfiguration();
+          if ($conf['id'] === 'image_scale' || $conf['id'] === 'image_scale_and_crop') {
+            $max_width = $conf['data']['width'] ?? NULL;
+            $max_height = $conf['data']['height'] ?? NULL;
+            break;
+          }
+        }
+      }
+    }
+
+    $album_id = 'album-item-' . rand();
+
+    return [
+      'id' => $album_id,
+      'image_url' => $image_url,
+      'title' => $title,
+      'author' => $author,
+      'description' => $description,
+      'url' => $url,
+      'medias' => $medias,
+      'max_width' => $max_width,
+      'max_height' => $max_height,
+      'lightgallery_settings' => self::getGeneralSettings($node_settings),
+    ];
   }
 
   /**
@@ -530,12 +674,27 @@ class AlbumIsotopeGallery extends StylePluginBase {
    *   The source field name or NULL if not found.
    */
   private function getSourceField($media) {
-    $source_config = $media->getSource()->getConfiguration();
-    $source_field = $source_config['source_field'] ?? NULL;
-    if (!$source_field) {
-      \Drupal::logger('album_gallery')->warning('Media entity @id is missing a source_field configuration.', ['@id' => $media->id()]);
+    try {
+      if (!$media instanceof MediaInterface) {
+        \Drupal::logger('album_gallery')->warning('Invalid media entity provided.');
+        return NULL;
+      }
+      $source = $media->getSource();
+      if (!$source) {
+        \Drupal::logger('album_gallery')->warning('Media entity @id has no source plugin.', ['@id' => $media->id()]);
+        return NULL;
+      }
+      $source_config = $media->getSource()->getConfiguration();
+      $source_field = $source_config['source_field'] ?? NULL;
+      if (!$source_field) {
+        \Drupal::logger('album_gallery')->warning('Media entity @id is missing a source_field configuration.', ['@id' => $media->id()]);
+      }
+      return $source_field;
     }
-    return $source_field;
+    catch (\Exception $e) {
+      \Drupal::logger('album_gallery')->error('Error retrieving source field for media @id: @error', ['@id' => $media->id(), '@error' => $e->getMessage()]);
+      return NULL;
+    }
   }
 
   /**
@@ -543,6 +702,10 @@ class AlbumIsotopeGallery extends StylePluginBase {
    */
   protected function getMediaImageUrl($row, $field_name) {
     if (empty($field_name)) {
+      return '';
+    }
+
+    if (!isset($row->_entity) || !$row->_entity instanceof EntityInterface) {
       return '';
     }
 
@@ -750,9 +913,9 @@ class AlbumIsotopeGallery extends StylePluginBase {
    *   The field value.
    */
   public function getFieldValue($index, $field) {
-
     $filters = $this->view->display_handler->getOption('filters');
 
+    $bundle = NULL;
     foreach (['type', 'bundle', 'media_bundle'] as $key) {
       if (!empty($filters[$key]['value'])) {
         $bundle = $filters[$key]['value'];
@@ -776,43 +939,92 @@ class AlbumIsotopeGallery extends StylePluginBase {
     ];
     $entity_type_id = $table_to_entity[$base_table] ?? $base_table;
 
-    // 3. retreive field definition.
-    $field_name = $this->view->field[$field]->field;
-    $field_definitions = \Drupal::service('entity_field.manager')->getFieldDefinitions($entity_type_id, $bundle);
-    $field_definition = $field_definitions[$field_name] ?? NULL;
+    // 3. Get the row entity directly.
+    $row_entity = $this->view->result[$index]->_entity ?? NULL;
+    if (!$row_entity || !$row_entity->hasField($field)) {
+      return '';
+    }
 
-    // 4. Use field definition to get value accordingly.
-    if ($field_definition) {
-      $type = $field_definition->getType();
-      // Text field.
-      if (in_array($type, ['string', 'text', 'text_long', 'text_with_summary'])) {
+    // 4. Get field definition.
+    $field_definitions = \Drupal::service('entity_field.manager')->getFieldDefinitions($entity_type_id, $bundle);
+    $field_definition = $field_definitions[$field] ?? NULL;
+
+    if (!$field_definition) {
+      return '';
+    }
+
+    $type = $field_definition->getType();
+
+    // Text field - render via field handler if exists, otherwise get raw value.
+    if (in_array($type, ['string', 'text', 'text_long', 'text_with_summary'])) {
+      // Check if field is in view's field handlers.
+      if (isset($this->view->field[$field])) {
         $this->view->row_index = $index;
         $value = $this->view->field[$field]->getValue($this->view->result[$index]);
         unset($this->view->row_index);
         return $value;
       }
-      // Taxonomy term reference field.
-      elseif ($type === 'entity_reference' && $field_definition->getSetting('target_type') === 'taxonomy_term') {
-        $row_entity = $this->view->result[$index]->_entity ?? NULL;
-        if ($row_entity && $row_entity->hasField($field_name)) {
-          $labels = [];
-          foreach ($row_entity->get($field_name) as $item) {
-            if ($item->entity) {
-              $labels[] = $item->entity->label();
-            }
-          }
-          // Array of labels to comma-separated string.
-          return implode(', ', $labels);
+      // Fallback: get raw value from entity.
+      else {
+        $field_value = $row_entity->get($field);
+        if (!$field_value->isEmpty()) {
+          return $field_value->first()->getValue()['value'] ?? '';
         }
-        return '';
+      }
+    }
+    // Taxonomy term reference field.
+    elseif ($type === 'entity_reference' && $field_definition->getSetting('target_type') === 'taxonomy_term') {
+      $labels = [];
+      foreach ($row_entity->get($field) as $item) {
+        if ($item->entity) {
+          $labels[] = $item->entity->label();
+        }
+      }
+      // Array of labels to comma-separated string.
+      return implode(', ', $labels);
+    }
+
+    return '';
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function submitOptionsForm(&$form, FormStateInterface $form_state) {
+    parent::submitOptionsForm($form, $form_state);
+
+    // Debug: Log what we're trying to save.
+    $values = $form_state->getValues();
+    \Drupal::logger('album_isotope')->info('Form values: @values', [
+      '@values' => json_encode($values['style_options']['grouping'] ?? []),
+    ]);
+  }
+
+  /**
+   * {@inheritdoc}
+   * Surcharge pour garantir que la valeur utilisée pour le regroupement est une
+   * chaîne simple, évitant ainsi la 'TypeError' due à l'utilisation d'un objet
+   * Markup comme clé de tableau.
+   */
+  public function renderGrouping($records, $groupings = [], $group_rendered = NULL) {
+
+    // 1. Force l'utilisation de la valeur brute du champ pour le regroupement.
+    $cleaned_grouping = $groupings;
+    if (!empty($cleaned_grouping)) {
+      foreach ($cleaned_grouping as $key => $grouping_info) {
+        if (is_array($grouping_info) && isset($grouping_info['rendered'])) {
+          // Cette ligne est cruciale : elle dit à la méthode parente de ne pas utiliser le rendu HTML.
+          $cleaned_grouping[$key]['rendered'] = FALSE;
+        }
       }
     }
 
-    // Fallback.
-    $this->view->row_index = $index;
-    $value = $this->view->field[$field]->getValue($this->view->result[$index]);
-    unset($this->view->row_index);
-    return $value;
+    // 2. Évite l'exécution du bloc de rétrocompatibilité (où l'erreur se produit).
+    // Ceci force $group_rendered à une valeur non-NULL, désactivant la boucle boguée.
+    $group_rendered_fixed = $group_rendered ?? FALSE;
+
+    // Appel de la méthode parente avec les paramètres corrigés.
+    return parent::renderGrouping($records, $cleaned_grouping, $group_rendered_fixed);
   }
 
 }

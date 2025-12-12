@@ -31,6 +31,7 @@ function lightgallery_views_isotope_theme(array $existing, string $type, string 
         'view' => NULL,
         'options' => [],
         'albums' => [],
+        'groups' => [],
         'settings' => [],
         'init' => TRUE
       ],

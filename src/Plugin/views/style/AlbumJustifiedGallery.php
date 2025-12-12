@@ -329,9 +329,9 @@ class AlbumJustifiedGallery extends StylePluginBase {
       // Build the settings for the album
       // Should be the sames settings for all albums,
       // as they use the same formatter/renderer.
-      $build['#attached']['drupalSettings']['lightgallery']['albums'][$album_id] = static::getGeneralSettings($node_settings);
+      $build['#attached']['drupalSettings']['lightgallery']['albums'][$album_id] = self::getGeneralSettings($node_settings);
       // Build plugins list and attach libraries.
-      $plugins_mapping = static::getPluginsLibrary();
+      $plugins_mapping = self::getPluginsLibrary();
       $build['#attached']['drupalSettings']['lightgallery']['albums'][$album_id]['plugins'] = [];
       foreach ($node_settings['lightgallery_settings']['plugins'] ?? [] as $plugin_name => $plugin) {
         if (isset($plugin['enabled']) && $plugin['enabled'] == FALSE) {

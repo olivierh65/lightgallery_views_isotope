@@ -1,121 +1,120 @@
-{# templates/views-view-style--album-justified-gallery.html.twig #}
-{# This template is used to render a justified gallery of album items. #}
+{#
+  Template récursif pour afficher albums + sous-groupes,
+  avec conteneurs imbriqués compatibles Isotope + LightGallery.
+#}
+{{ dump()}}
+{% macro render_group_recursive(group, options) %}
 
-{# {{ dump() }} #}
+	{# ---- TITRE DU GROUPE --------------------------------------------------------------- #}
+	{% if group.title %}
+		<h2 class="isotope-group-title level-{{ group.level }}">
+			{{ group.title }}
+		</h2>
+	{% endif %}
 
-{% set albums = albums|default([]) %}
+	{# ---- CONTENEUR ISOTOPE DE CE GROUPE ------------------------------------------------ #}
+	<div
+		class="isotope-group level-{{ group.level }}" id="isotope-group-{{ group.title|striptags|trim|clean_class }}-{{ group.level }}" data-isotope-level="{{ group.level }}">
 
-{% set size_tolerance = options.image.thumbnail_size_tolerance|default(10) %}
+		{# ---- 1) SOUS-GROUPES -------------------------------------------------------------- #}
+		{% if group.subgroups is defined and group.subgroups|length > 0 %}
+			{% for subgroup in group.subgroups %}
+				{{ _self.render_group_recursive(subgroup, options) }}
+			{% endfor %}
+		{% endif %}
 
-{# Prepare attributes for the main container #}
-{% set attributes = create_attribute() %}
-{% if options.gallery.id is not empty %}
-	{% set attributes = attributes.setAttribute('id', options.gallery.id) %}
-{% endif %}
-{% if options.gallery.class is not empty %}
-	{% set attributes = attributes.addClass(options.gallery.class) %}
-{% endif %}
-{# Define classes for the main container #}
-{% set classes = [
-    'album-justified-gallery',
-    'view',
-    'view-album-justified-gallery',
-] %}
+		{# ---- 2) ALBUMS DU GROUPE ---------------------------------------------------------- #}
+		{% if group.albums is defined and group.albums|length > 0 %}
+			{% for album in group.albums %}
 
-{# Ensure that the albums variable is an array #}
-{% if not albums is iterable %}
-	{% set albums = [] %}
-{% endif %}
+				<div
+					class="album-border album-block">
 
-<div{{attributes.addClass(classes)}}>
-	<div id="albums-gallery">
-		{% for item in albums %}
-			<div class="album-block {% if options.border == 1 %}
-						album-border
-					{% endif %}"
-				{% if item.max_width or item.max_height %} style="
-					{% if item.max_width %}
-						max-width: {{ item.max_width + (size_tolerance * item.max_width / 100) }}px;
-						min-width: {{ item.max_width - (size_tolerance * item.max_width / 100) }}px;
-					{% endif %}
-					position: relative;"
-				{% endif %}>
-				{% if item.medias is not empty %}
-					<a href="#" class="album-cover" data-album-id="{{ item.id }}">
-						<span class="album-cover-title-top">{{ item.title }}</span>
-						<img src="{{ item.image_url }}" alt="{{ item.alt|default(item.title) }}" class="album-cover-img" loading="lazy"
-						>
-					</a>
-				{% else %}
-					<span class="album-cover album-cover--disabled" title="Aucun média dans cet album – {{ item.title }}">
-						<img src="{{ item.image_url }}" alt="{{ item.title }}" class="album-cover-img" loading="lazy">
-						<span class="album-cover-title-overlay">{{ item.title }}</span>
-					</span>
-				{% endif %}
-				{# Hidden div for the lightgallery album #}
-				{% set item_id = 'album-' ~ item.id %}
-				{% set item_classes = ['lightgallery-album'] %}
-				{% if options.border == 1 %}
-					{% set item_classes = item_classes|merge(['album-border']) %}
-				{% endif %}
-				<div id="{{ item.id }}" class="lightgallery-album" style="display:none;">
-					{% for media in item.medias %}
-						{% if media.mime_type starts with 'image/' %}
-							<a href="{{ media.url }}" class="lightgallery__item" data-sub-html=".lightgallery_caption">
-								<img loading="lazy" src="{{ media.thumbnail }}">
-								<div class="lightgallery_caption">
-									<h4>{{ media.title|default('') }}</h4>
-									{% if media.alt %}
-										<p>{{ media.alt }}</p>
-									{% endif %}
-									{% if media.description %}
-										<p>{{ media.description }}</p>
-									{% endif %}
-								</div>
-							</a>
-						{% elseif media.mime_type starts with 'video/' %}
-							<a class="lightgallery__item" data-sub-html=".lightgallery_caption" data-poster="{{ media.thumbnail|default('') }}" data-video='{"source": [{"src":"{{ media.url }}","type":"{{ media.mime_type }}"}], "attributes": {"preload": false, "playsinline": true, "controls": true}}' "
-																								                title=" {{ media.title|default('') }} ">
-								{% if media.thumbnail %}
-									<img loading="lazy" class="img-responsive" src="{{ media.thumbnail|default('') }}"/>
-								{% endif %}
-								<div class="lightgallery_caption">
-									<h4>{{ media.title|default('') }}</h4>
-									{% if media.alt %}
-										<p>{{ media.alt }}</p>
-									{% endif %}
-									{% if media.description %}
-										<p>{{ media.description }}</p>
-									{% endif %}
-								</div>
-							</a>
+					{# --- ALBUM COVER (CLICK → LIGHTGALLERY) -------------------------------------- #}
+					<a href="#" class="album-cover" data-album-id="album-item-{{ album.id }}" data-once="lg-album">
+						<span class="album-cover-title-top">{{ album.title }}</span>
+						{% if album.image_url %}
+							<img src="{{ album.image_url }}" class="album-cover-img" alt="{{ album.title }}" loading="lazy">
 						{% endif %}
-					{% endfor %}
-				</div>
+					</a>
 
-				{% if options.captions == 1 %}
-				<div class="album-caption">
-					{# {% if item.title %}
-						<h3>{{ item.title }}</h3>
-					{% endif %}
-					#}
-					{% if item.author %}
-						<div class="album-author">{{ item.author }}</div>
-					{% endif %}
-					{% if item.description %}
-						<div class="album-description" style="
-							{% if item.max_width %}
-								width: {{ item.max_width }}px;
-								max-width: {{ item.max_width + (size_tolerance * item.max_width / 100) }}px;
-								min-width: {{ item.max_width - (size_tolerance * item.max_width / 100) }}px;
+					{# --- LIGHTGALLERY HIDDEN CONTAINER ------------------------------------------- #}
+					<div id="album-item-{{ album.id }}" class="lightgallery-album" style="display:none;">
+
+						{% for media in album.medias %}
+							{% if media.mime_type starts with 'image/' %}
+								<a href="{{ media.url }}" class="lightgallery__item" data-sub-html=".lightgallery_caption">
+									<img loading="lazy" src="{{ media.thumbnail }}">
+									<div class="lightgallery_caption">
+										<h4>{{ media.title|default('') }}</h4>
+										{% if media.alt %}
+											<p>{{ media.alt }}</p>
+										{% endif %}
+										{% if media.description %}
+											<p>{{ media.description }}</p>
+										{% endif %}
+									</div>
+								</a>
+							{% elseif media.mime_type starts with 'video/' %}
+								<a class="lightgallery__item" data-sub-html=".lightgallery_caption" data-poster="{{ media.thumbnail|default('') }}" data-video='{"source": [{"src":"{{ media.url }}","type":"{{ media.mime_type }}"}], "attributes": {"preload": false, "playsinline": true, "controls": true}}' "
+																																	                title=" {{ media.title|default('') }} ">
+									{% if media.thumbnail %}
+										<img loading="lazy" class="img-responsive" src="{{ media.thumbnail|default('') }}"/>
+									{% endif %}
+									<div class="lightgallery_caption">
+										<h4>{{ media.title|default('') }}</h4>
+										{% if media.alt %}
+											<p>{{ media.alt }}</p>
+										{% endif %}
+										{% if media.description %}
+											<p>{{ media.description }}</p>
+										{% endif %}
+									</div>
+								</a>
 							{% endif %}
-						">
-						{{ item.description|raw }}
+						{% endfor %}
+
+					</div>
+
+					{# --- INFOS SUPPLÉMENTAIRES --------------------------------------------------- #}
+					{% if options.captions %}
+						<div class="album-caption">
+							{% if album.author %}
+								<p class="album-author">{{ album.author }}</p>
+							{% endif %}
+							{% if album.description %}
+								<p class="album-description">{{ album.description }}</p>
+							{% endif %}
 						</div>
 					{% endif %}
+
+					<div class="album-media-count">
+						{{ album.medias|length }}
+						media
+					</div>
+
 				</div>
-				{% endif %}
-			</div>
-		{% endfor %}
+
+			{% endfor %}
+		{% endif %}
+
 	</div>
+
+{% endmacro %}
+
+
+{# ================= TEMPLATE PRINCIPAL ===================== #}
+
+{% import _self as macros %}
+
+<div{{attributes.addClass(['album-isotope-wrapper'])}}>
+
+	{% if groups|length > 0 %}
+		{% for group in groups %}
+			{{ macros.render_group_recursive(group, options) }}
+		{% endfor %}
+	{% else %}
+		<p>No results.</p>
+	{% endif %}
+
 </div>
