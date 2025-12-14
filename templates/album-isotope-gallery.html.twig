@@ -1,101 +1,112 @@
 {#
   Template récursif pour afficher albums + sous-groupes,
-  avec conteneurs imbriqués compatibles Isotope + LightGallery.
+  avec Isotope à tous les niveaux pour une mise en page réactive.
 #}
-{{ dump()}}
-{% macro render_group_recursive(group, options) %}
 
-	{# ---- TITRE DU GROUPE --------------------------------------------------------------- #}
-	{% if group.title %}
-		<h2 class="isotope-group-title level-{{ group.level }}">
-			{{ group.title }}
-		</h2>
-	{% endif %}
+{% macro render_group_recursive(group, options, parent_id, level) %}
 
-	{# ---- CONTENEUR ISOTOPE DE CE GROUPE ------------------------------------------------ #}
+	{# ---- ITEM DE GROUPE (pour Isotope du parent) ---- #}
 	<div
-		class="isotope-group level-{{ group.level }}" id="isotope-group-{{ group.title|striptags|trim|clean_class }}-{{ group.level }}" data-isotope-level="{{ group.level }}">
+		class="isotope-item group-item level-{{ level }}" data-level="{{ level }}">
 
-		{# ---- 1) SOUS-GROUPES -------------------------------------------------------------- #}
-		{% if group.subgroups is defined and group.subgroups|length > 0 %}
-			{% for subgroup in group.subgroups %}
-				{{ _self.render_group_recursive(subgroup, options) }}
-			{% endfor %}
+		{# ---- TITRE DU GROUPE (si présent) ---- #}
+		{% if group.title %}
+			<div class="group-title-wrapper level-{{ level }}">
+				{% if group.title|striptags|trim|length == 0 %}
+					<span class="group-title level-{{ level }} placeholder" aria-hidden="true">
+          &nbsp;
+          </span>
+				{% else %}
+					<span class="group-title level-{{ level }}">
+						{{ group.title }}
+					</span>
+				{% endif  %}
+			</div>
 		{% endif %}
 
-		{# ---- 2) ALBUMS DU GROUPE ---------------------------------------------------------- #}
-		{% if group.albums is defined and group.albums|length > 0 %}
-			{% for album in group.albums %}
+		{# Vérifier s'il y a du contenu #}
+		{% set has_albums = group.albums is defined and group.albums|length > 0 %}
+		{% set has_subgroups = group.subgroups is defined and group.subgroups|length > 0 %}
 
-				<div
-					class="album-border album-block">
+		{% if has_albums or has_subgroups %}
+			{# ---- CONTENEUR ISOTOPE POUR LES ENFANTS ---- #}
+			{% set group_id = 'isotope-container-' ~ random() %}
+			<div
+				class="isotope-container" id="{{ group_id }}" data-parent="{{ parent_id }}" data-level="{{ level }} ">
 
-					{# --- ALBUM COVER (CLICK → LIGHTGALLERY) -------------------------------------- #}
-					<a href="#" class="album-cover" data-album-id="album-item-{{ album.id }}" data-once="lg-album">
-						<span class="album-cover-title-top">{{ album.title }}</span>
-						{% if album.image_url %}
-							<img src="{{ album.image_url }}" class="album-cover-img" alt="{{ album.title }}" loading="lazy">
-						{% endif %}
-					</a>
+				{# ---- ALBUMS DU GROUPE ---- #}
+				{% if has_albums %}
+					{% for album in group.albums %}
+						<div class="isotope-item album-item">
 
-					{# --- LIGHTGALLERY HIDDEN CONTAINER ------------------------------------------- #}
-					<div id="album-item-{{ album.id }}" class="lightgallery-album" style="display:none;">
+							<a href="#" class="album-cover" data-album-id="{{ album.id }}" data-once="lg-album">
+								<span class="album-title">{{ album.title }}</span>
+								{% if album.image_url %}
+									<img src="{{ album.image_url }}" class="album-img" loading="lazy" alt="{{ album.title }}">
+								{% endif %}
+							</a>
 
-						{% for media in album.medias %}
-							{% if media.mime_type starts with 'image/' %}
-								<a href="{{ media.url }}" class="lightgallery__item" data-sub-html=".lightgallery_caption">
-									<img loading="lazy" src="{{ media.thumbnail }}">
-									<div class="lightgallery_caption">
-										<h4>{{ media.title|default('') }}</h4>
-										{% if media.alt %}
-											<p>{{ media.alt }}</p>
-										{% endif %}
-										{% if media.description %}
-											<p>{{ media.description }}</p>
-										{% endif %}
-									</div>
-								</a>
-							{% elseif media.mime_type starts with 'video/' %}
-								<a class="lightgallery__item" data-sub-html=".lightgallery_caption" data-poster="{{ media.thumbnail|default('') }}" data-video='{"source": [{"src":"{{ media.url }}","type":"{{ media.mime_type }}"}], "attributes": {"preload": false, "playsinline": true, "controls": true}}' "
-																																	                title=" {{ media.title|default('') }} ">
-									{% if media.thumbnail %}
-										<img loading="lazy" class="img-responsive" src="{{ media.thumbnail|default('') }}"/>
+							{# LightGallery container #}
+							<div id="{{ album.id }}" class="lightgallery-album" style="display:none;">
+								{% for media in album.medias %}
+									{% if media.mime_type starts with 'image/' %}
+										<a href="{{ media.url }}" class="lightgallery__item" data-sub-html=".lightgallery_caption">
+											<img loading="lazy" src="{{ media.thumbnail }}">
+											<div class="lightgallery_caption">
+												<h4>{{ media.title|default('') }}</h4>
+												{% if media.alt %}
+													<p>{{ media.alt }}</p>
+												{% endif %}
+												{% if media.description %}
+													<p>{{ media.description }}</p>
+												{% endif %}
+											</div>
+										</a>
+									{% elseif media.mime_type starts with 'video/' %}
+										<a class="lightgallery__item" data-sub-html=".lightgallery_caption" data-poster="{{ media.thumbnail|default('') }}" data-video='{"source": [{"src":"{{ media.url }}","type":"{{ media.mime_type }}"}], "attributes": {"preload": false, "playsinline": true, "controls": true}}' title="{{ media.title|default('') }}">
+											{% if media.thumbnail %}
+												<img loading="lazy" src="{{ media.thumbnail }}"/>
+											{% endif %}
+											<div class="lightgallery_caption">
+												<h4>{{ media.title|default('') }}</h4>
+												{% if media.alt %}
+													<p>{{ media.alt }}</p>
+												{% endif %}
+												{% if media.description %}
+													<p>{{ media.description }}</p>
+												{% endif %}
+											</div>
+										</a>
 									{% endif %}
-									<div class="lightgallery_caption">
-										<h4>{{ media.title|default('') }}</h4>
-										{% if media.alt %}
-											<p>{{ media.alt }}</p>
-										{% endif %}
-										{% if media.description %}
-											<p>{{ media.description }}</p>
-										{% endif %}
-									</div>
-								</a>
-							{% endif %}
-						{% endfor %}
+								{% endfor %}
+							</div>
 
-					</div>
+							{# Caption (si présente) #}
+							{% if options.captions and (album.author or album.description) %}
+								<div class="album-caption">
+									{% if album.author %}
+										<p class="album-author">{{ album.author }}</p>
+									{% endif %}
+									{% if album.description %}
+										<div class="album-description">
+											{{ album.description|raw }}
+										</div>
+									{% endif %}
+								</div>
+							{% endif %}
 
-					{# --- INFOS SUPPLÉMENTAIRES --------------------------------------------------- #}
-					{% if options.captions %}
-						<div class="album-caption">
-							{% if album.author %}
-								<p class="album-author">{{ album.author }}</p>
-							{% endif %}
-							{% if album.description %}
-								<p class="album-description">{{ album.description }}</p>
-							{% endif %}
 						</div>
-					{% endif %}
+					{% endfor %}
+				{% endif %}
 
-					<div class="album-media-count">
-						{{ album.medias|length }}
-						media
-					</div>
+				{# ---- SOUS-GROUPES (RÉCURSIF) ---- #}
+				{% if has_subgroups %}
+					{% for subgroup in group.subgroups %}
+						{{ _self.render_group_recursive(subgroup, options, group_id, level + 1) }}
+					{% endfor %}
+				{% endif %}
 
-				</div>
-
-			{% endfor %}
+			</div>
 		{% endif %}
 
 	</div>
@@ -107,14 +118,27 @@
 
 {% import _self as macros %}
 
-<div{{attributes.addClass(['album-isotope-wrapper'])}}>
+{% set classes = [
+  'album-gallery-view',
+  'view',
+  'view-album-isotope'
+] %}
 
-	{% if groups|length > 0 %}
-		{% for group in groups %}
-			{{ macros.render_group_recursive(group, options) }}
-		{% endfor %}
-	{% else %}
-		<p>No results.</p>
-	{% endif %}
+<div{{attributes.addClass(classes)}}
+	id="album-gallery-{{ random() }}">
+
+	{# --- CONTENEUR ISOTOPE RACINE ---- #}
+	{% set root_id = 'isotope-root-' ~ random() %}
+	<div class="isotope-container isotope-root" id="{{ root_id }}" data-level="root">
+
+		{% if groups|length > 0 %}
+			{% for group in groups %}
+				{{ macros.render_group_recursive(group, options, root_id, 0) }}
+			{% endfor %}
+		{% else %}
+			<p class="no-results">Aucun album trouvé.</p>
+		{% endif %}
+
+	</div>
 
 </div>

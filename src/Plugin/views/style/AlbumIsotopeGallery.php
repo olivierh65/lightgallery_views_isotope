@@ -111,37 +111,13 @@ class AlbumIsotopeGallery extends StylePluginBase {
         'width' => '30%',
         'columnWidth' => '',
         'rowHeight' => '',
-        'gutter' => 5,
+        'gutter' => 6,
         'horizontal' => FALSE,
         'horizontalOrder' => TRUE,
         'fitWidth' => FALSE,
         'border' => TRUE,
       ],
     ];
-
-    // don't add grouping options as they are already defined in the parent class
-    // when $this->usesGrouping = TRUE;.
-    /* $options['grouping'] = [
-    'default' => [],
-    'contains' => [
-    0 => [
-    'default' => ['field' => '', 'rendered' => FALSE, 'rendered_strip' => FALSE],
-    'contains' => [
-    'field' => ['default' => ''],
-    'rendered' => ['default' => FALSE],
-    'rendered_strip' => ['default' => FALSE],
-    ],
-    ],
-    1 => [
-    'default' => ['field' => '', 'rendered' => FALSE, 'rendered_strip' => FALSE],
-    'contains' => [
-    'field' => ['default' => ''],
-    'rendered' => ['default' => FALSE],
-    'rendered_strip' => ['default' => FALSE],
-    ],
-    ],
-    ],
-    ]; */
 
     return $options;
   }
@@ -151,6 +127,11 @@ class AlbumIsotopeGallery extends StylePluginBase {
    */
   public function buildOptionsForm(&$form, FormStateInterface $form_state) {
     parent::buildOptionsForm($form, $form_state);
+
+    if (isset($form['grouping']) && is_array($form['grouping'])) {
+      // Limit to two grouping levels.
+      $form['grouping'] = array_slice($form['grouping'], 0, 2, TRUE);
+    }
 
     [$fields_text, $fields_media, $fields_taxo] = $this->getTextAndMediaFields($this->view);
 
@@ -209,14 +190,14 @@ class AlbumIsotopeGallery extends StylePluginBase {
     $form['image']['border'] = [
       '#type' => 'checkbox',
       '#title' => $this->t('Border'),
-      '#default_value' => $this->options['gallery']['border'] ?? TRUE,
+      '#default_value' => $this->options['image']['border'] ?? TRUE,
       '#description' => $this->t('Border around each items?'),
     ];
 
     $form['image']['captions'] = [
       '#type' => 'checkbox',
       '#title' => $this->t('Display captions'),
-      '#default_value' => $this->options['gallery']['captions'] ?? TRUE,
+      '#default_value' => $this->options['image']['captions'] ?? TRUE,
       '#description' => $this->t('Display captions for images.'),
     ];
 
@@ -246,36 +227,6 @@ class AlbumIsotopeGallery extends StylePluginBase {
 
     // don't add grouping options as they are already defined in the parent class
     // when $this->usesGrouping = TRUE;.
-    /* // Grouping options.
-    $form['grouping'] = [
-    '#type' => 'details',
-    '#title' => $this->t('Grouping settings'),
-    '#description' => $this->t('Configure grouping by taxonomy terms.'),
-    '#open' => FALSE,
-    '#tree' => TRUE,
-    ];
-
-    // Assurez-vous que les options 0 et 1 existent.
-    $this->options['grouping'][0] = $this->options['grouping'][0] ?? ['field' => '', 'rendered' => FALSE, 'rendered_strip' => FALSE];
-    $this->options['grouping'][1] = $this->options['grouping'][1] ?? ['field' => '', 'rendered' => FALSE, 'rendered_strip' => FALSE];
-
-    $form['grouping'][0]['field'] = [
-    '#type' => 'select',
-    '#title' => $this->t('First grouping field'),
-    '#options' => ['' => $this->t('- None -')] + $fields_taxo,
-    // Notez l'accès direct aux indices numériques de Views.
-    '#default_value' => $this->options['grouping'][0]['field'],
-    '#description' => $this->t('Select a taxonomy field to group items (first level).'),
-    ];
-
-    $form['grouping'][1]['field'] = [
-    '#type' => 'select',
-    '#title' => $this->t('Second grouping field'),
-    '#options' => ['' => $this->t('- None -')] + $fields_taxo,
-    '#default_value' => $this->options['grouping'][1]['field'],
-    '#description' => $this->t('Select a taxonomy field to group items (second level).'),
-    ];
-     */
     // Options for the Gallery.
     $form['gallery'] = [
       '#type' => 'details',
@@ -296,12 +247,13 @@ class AlbumIsotopeGallery extends StylePluginBase {
       '#default_value' => $this->options['gallery']['layout'],
     ];
 
-    $form['gallery']['width'] = [
-      '#type' => 'textfield',
-      '#title' => $this->t('Width'),
-      '#default_value' => $this->options['gallery']['width'],
-      '#description' => $this->t('Width of the gallery items. Use CSS units like %, px, em, etc.'),
-    ];
+    // Width will be determined by the image size settings.
+    /* $form['gallery']['width'] = [
+    '#type' => 'textfield',
+    '#title' => $this->t('Width'),
+    '#default_value' => $this->options['gallery']['width'],
+    '#description' => $this->t('Width of the gallery items. Use CSS units like %, px, em, etc.'),
+    ]; */
 
     $form['gallery']['columnWidth'] = [
       '#type' => 'number',
@@ -415,7 +367,7 @@ class AlbumIsotopeGallery extends StylePluginBase {
               'horizontal' => $this->options['gallery']['horizontal'] ?? FALSE,
               'horizontalOrder' => $this->options['gallery']['horizontalOrder'] ?? TRUE,
               'fitWidth' => $this->options['gallery']['fitWidth'] ?? FALSE,
-              'layout' => $this->options['gallery']['layout'] ?? 'packery',
+              'layoutMode' => $this->options['gallery']['layout'] ?? 'packery',
             ],
           ],
         ],
@@ -464,6 +416,7 @@ class AlbumIsotopeGallery extends StylePluginBase {
         'level' => $group_data['level'] ?? $depth,
         'albums' => [],
         'subgroups' => [],
+        'groupid' => 'album-group-' . rand(),
       ];
 
       // Vérifier si ce groupe contient des rows (résultats finaux)
@@ -487,6 +440,9 @@ class AlbumIsotopeGallery extends StylePluginBase {
 
             if ($album_data) {
               $group_item['albums'][] = $album_data;
+
+              // Add image size to layout settings.
+              $build['#attached']['drupalSettings']['settings']['layout']['width'] = $album_data['max_width'] . 'px' ?? '30%';
 
               // Ajouter les settings lightgallery au build.
               $build['#attached']['drupalSettings']['settings']['lightgallery']['albums'][$album_data['id']] =
@@ -627,6 +583,17 @@ class AlbumIsotopeGallery extends StylePluginBase {
       $node_settings = $display->getComponent($this->options['image']['image_field'])['settings'];
     }
 
+    // Build the settings for the album.
+    // Same settings for all albums, as they use the same formatter/renderer,
+    // but Views can return different content types.
+    $lightgallery_settings = self::getGeneralSettings($node_settings);
+    // Build plugins list and attach libraries.
+    foreach ($lightgallery_settings ?? [] as $plugin_name => $plugin) {
+      $build['#attached']['library'][] = 'lightgallery/lightgallery-' . $plugin_name ?? $plugin_name;
+      // $build['#attached']['drupalSettings']['lightgallery']['albums']
+      // [$album_id]['plugins'][] = $plugin ?? $plugin;
+    }
+
     // Get image style dimensions.
     $max_width = NULL;
     $max_height = NULL;
@@ -646,7 +613,6 @@ class AlbumIsotopeGallery extends StylePluginBase {
     }
 
     $album_id = 'album-item-' . rand();
-
     return [
       'id' => $album_id,
       'image_url' => $image_url,
@@ -657,7 +623,7 @@ class AlbumIsotopeGallery extends StylePluginBase {
       'medias' => $medias,
       'max_width' => $max_width,
       'max_height' => $max_height,
-      'lightgallery_settings' => self::getGeneralSettings($node_settings),
+      'lightgallery_settings' => $lightgallery_settings,
     ];
   }
 
