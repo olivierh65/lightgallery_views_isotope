@@ -25,17 +25,17 @@
         },
 
         masonry: {
-          columnWidth: parseInt(layout_settings.columnWidth) || 220,
-          gutter: parseInt(layout_settings.gutter) || 10,
+          columnWidth: parseInt(layout_settings.columnWidth) + 'px' || undefined,
+          gutter: parseInt(layout_settings.gutter) || 1,
           horizontalOrder: layout_settings.horizontalOrder !== false,
           fitWidth: layout_settings.fitWidth || false,
         },
 
         packery: {
-          gutter: parseInt(layout_settings.gutter) || 10,
-          columnWidth: parseInt(layout_settings.columnWidth) || 220,
-          rowHeight: parseInt(layout_settings.rowHeight) || undefined,
-          horizontalOrder: layout_settings.horizontalOrder !== false,
+          gutter: parseInt(layout_settings.gutter) || 1,
+          columnWidth: parseInt(layout_settings.columnWidth) + 'px'|| undefined,
+          rowHeight: parseInt(layout_settings.rowHeight) + 'px' || undefined,
+          horizontal: layout_settings.horizontal || false,
         },
       };
 
@@ -134,8 +134,10 @@
         });
       }
 
+      /*
       // Chercher le conteneur racine
       const $root = $(".isotope-root", context).once("isotope-init");
+      // const $root = $(once('isotope-init', '.isotope-root', context));
 
       if ($root.length === 0) {
         return;
@@ -160,6 +162,7 @@
         setTimeout(relayoutCascade, 1000);
         setTimeout(relayoutCascade, 2000);
       }
+      */
 
       // Relayout au redimensionnement (debounced)
       let resizeTimer;

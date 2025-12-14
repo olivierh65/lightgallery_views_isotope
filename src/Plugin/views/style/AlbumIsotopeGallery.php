@@ -291,7 +291,7 @@ class AlbumIsotopeGallery extends StylePluginBase {
 
     $form['gallery']["horizontal"] = [
       '#type' => 'checkbox',
-      '#title' => $this->t('Horizontal order'),
+      '#title' => $this->t('Horizontal'),
       '#default_value' => $this->options['gallery']['horizontal'] ?? FALSE,
       '#description' => $this->t('Arranges items horizontally instead of vertically.'),
       '#states' => [
