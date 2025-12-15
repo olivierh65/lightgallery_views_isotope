@@ -2,7 +2,7 @@
   Template récursif pour afficher albums + sous-groupes,
   avec Isotope à tous les niveaux pour une mise en page réactive.
 #}
-
+{{dump(groups)}}
 {% macro render_group_recursive(group, options, parent_id, level) %}
 
 	{# ---- ITEM DE GROUPE (pour Isotope du parent) ---- #}

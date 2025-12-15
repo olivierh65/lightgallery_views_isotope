@@ -1,10 +1,6 @@
-isotope:
+gallery:
   js:
     js/isotope.js: { }
-    js/isotope/js/isotope.pkgd.js: { minified: false }
-    js/isotope/js/masonry-horizontal.js: { minified: false }
-    js/isotope/js/packery-mode.pkgd.js: { minified: false }
-    js/isotope/js/fit-columns.js: { minified: false }
   css:
     theme:
       css/isotope.css: { minified: false }

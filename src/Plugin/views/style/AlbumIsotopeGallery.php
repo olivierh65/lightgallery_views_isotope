@@ -349,25 +349,14 @@ class AlbumIsotopeGallery extends StylePluginBase {
       '#attached' => [
         'library' => [
           'lightgallery/lightgallery',
-          'lightgallery_views_isotope/isotope',
+          'lightgallery_views_isotope/gallery',
         ],
         'drupalSettings' => [
           'settings' => [
             'lightgallery' => [
               'inline' => FALSE,
               'galleryId' => $id,
-        // Sera rempli par processGroupRecursive.
               'albums' => [],
-            ],
-            'layout' => [
-              'width' => $this->options['gallery']['width'] ?? '30%',
-              'columnWidth' => $this->options['gallery']['columnWidth'] ?? '',
-              'rowHeight' => $this->options['gallery']['rowHeight'] ?? '',
-              'gutter' => $this->options['gallery']['gutter'] ?? 5,
-              'horizontal' => $this->options['gallery']['horizontal'] ?? FALSE,
-              'horizontalOrder' => $this->options['gallery']['horizontalOrder'] ?? TRUE,
-              'fitWidth' => $this->options['gallery']['fitWidth'] ?? FALSE,
-              'layoutMode' => $this->options['gallery']['layout'] ?? 'packery',
             ],
           ],
         ],
@@ -443,6 +432,14 @@ class AlbumIsotopeGallery extends StylePluginBase {
 
               // Add image size to layout settings.
               $build['#attached']['drupalSettings']['settings']['layout']['width'] = $album_data['max_width'] . 'px' ?? '30%';
+
+              // Capture les dimensions pour CSS Grid.
+              if ($album_data['max_width']) {
+                $build['#attached']['drupalSettings']['settings']['itemDimensions']['itemWidth'] = $album_data['max_width'];
+              }
+              if ($album_data['max_height']) {
+                $build['#attached']['drupalSettings']['settings']['itemDimensions']['itemHeight'] = $album_data['max_height'];
+              }
 
               // Ajouter les settings lightgallery au build.
               $build['#attached']['drupalSettings']['settings']['lightgallery']['albums'][$album_data['id']] =
