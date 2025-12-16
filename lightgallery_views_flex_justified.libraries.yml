@@ -1,4 +1,4 @@
-gallery:
+isotope:
   js:
     js/isotope.js: { }
   css:
@@ -20,3 +20,10 @@ justified-gallery:
     - core/once
     - core/drupal
     - core/jquery
+
+flexbox:
+  js:
+    js/flexbox.js: { }
+  css:
+    theme:
+      css/flexbox.css: { minified: false }

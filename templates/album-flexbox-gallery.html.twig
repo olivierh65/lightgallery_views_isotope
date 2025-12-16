@@ -1,15 +1,15 @@
 {#
-  Template récursif pour afficher albums + sous-groupes,
-  avec Isotope à tous les niveaux pour une mise en page réactive.
+  Recursive template to display albums + sub-groups,
+  with Flexbox at all levels for a responsive layout.
 #}
 
 {% macro render_group_recursive(group, options, parent_id, level) %}
 
-	{# ---- ITEM DE GROUPE (pour Isotope du parent) ---- #}
+	{# ---- Group item (for Flexbox of the parent) ---- #}
 	<div
-		class="isotope-item group-item level-{{ level }}" data-level="{{ level }}">
+		class="flexbox-item group-item level-{{ level }}" data-level="{{ level }}">
 
-		{# ---- TITRE DU GROUPE (si présent) ---- #}
+		{# ---- GROUP TITLE (if present) ---- #}
 		{% if group.title %}
 			<div class="group-title-wrapper level-{{ level }}">
 				{% if group.title|striptags|trim|length == 0 %}
@@ -24,20 +24,20 @@
 			</div>
 		{% endif %}
 
-		{# Vérifier s'il y a du contenu #}
+		{# Check if there is content #}
 		{% set has_albums = group.albums is defined and group.albums|length > 0 %}
 		{% set has_subgroups = group.subgroups is defined and group.subgroups|length > 0 %}
 
 		{% if has_albums or has_subgroups %}
-			{# ---- CONTENEUR ISOTOPE POUR LES ENFANTS ---- #}
-			{% set group_id = 'isotope-container-' ~ random() %}
+			{# ---- FLEXBOX CONTAINER FOR CHILDREN ---- #}
+			{% set group_id = 'flexbox-container-' ~ random() %}
 			<div
-				class="isotope-container" id="{{ group_id }}" data-parent="{{ parent_id }}" data-level="{{ level }} ">
+				class="flexbox-container" id="{{ group_id }}" data-parent="{{ parent_id }}" data-level="{{ level }} ">
 
-				{# ---- ALBUMS DU GROUPE ---- #}
+				{# ---- ALBUMS OF THE GROUP ---- #}
 				{% if has_albums %}
 					{% for album in group.albums %}
-						<div class="isotope-item album-item">
+						<div class="flexbox-item album-item">
 
 							<a href="#" class="album-cover" data-album-id="{{ album.id }}" data-once="lg-album">
 								<span class="album-title">{{ album.title }}</span>
@@ -81,7 +81,7 @@
 								{% endfor %}
 							</div>
 
-							{# Caption (si présente) #}
+							{# Caption (if present) #}
 							{% if options.captions and (album.author or album.description) %}
 								<div class="album-caption">
 									{% if album.author %}
@@ -99,7 +99,7 @@
 					{% endfor %}
 				{% endif %}
 
-				{# ---- SOUS-GROUPES (RÉCURSIF) ---- #}
+				{# ---- SUB-GROUPS (RECURSIVE) ---- #}
 				{% if has_subgroups %}
 					{% for subgroup in group.subgroups %}
 						{{ _self.render_group_recursive(subgroup, options, group_id, level + 1) }}
@@ -114,22 +114,22 @@
 {% endmacro %}
 
 
-{# ================= TEMPLATE PRINCIPAL ===================== #}
+{# ================= MAIN TEMPLATE ===================== #}
 
 {% import _self as macros %}
 
 {% set classes = [
   'album-gallery-view',
   'view',
-  'view-album-isotope'
+  'view-album-flexbox'
 ] %}
 
 <div{{attributes.addClass(classes)}}
 	id="album-gallery-{{ random() }}">
 
-	{# --- CONTENEUR ISOTOPE RACINE ---- #}
-	{% set root_id = 'isotope-root-' ~ random() %}
-	<div class="isotope-container isotope-root" id="{{ root_id }}" data-level="root">
+	{# --- ROOT FLEXBOX CONTAINER ---- #}
+	{% set root_id = 'flexbox-root-' ~ random() %}
+	<div class="flexbox-container flexbox-root" id="{{ root_id }}" data-level="root">
 
 		{% if groups|length > 0 %}
 			{% for group in groups %}
